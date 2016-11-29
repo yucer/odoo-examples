@@ -8,4 +8,6 @@ _logger = logging.getLogger(__name__)
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
-    credit_limit = fields.Float(string='Credit Limit', company_dependet=True),
+    credit_limit = fields.Float(string='Credit Limit', company_dependent=True)
+
+    comment = fields.Text(string='Notes', company_dependent=True)

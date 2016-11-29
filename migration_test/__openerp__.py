@@ -2,7 +2,7 @@
 {
     'name': 'Migration tests',
     'summary': 'Test module for special migration scripts',
-    'version': '0.2',
+    'version': '0.3',
     'author': 'Elegosoft GmbH',
     'depends': [
     ],
