@@ -2,17 +2,27 @@
 # some utilities adapted from OCA/management-system: http://bit.ly/1VsS33p
 # those utilites are the same used in openupgrade
 
-from openerp.osv import orm
+import os.path
+import inspect
 
+from openerp.osv import orm
 from openerp.tools.misc import ustr
 
 import logging
 _logger = logging.getLogger('upgrade')
 
 
-def get_legacy_name(original_name, version):
+def _get_target_version():
+    frm = inspect.stack()[3]
+    _, dirname = os.path.split(os.path.dirname(frm[1]))
+    target_version = dirname.replace('.', '_')
+    return target_version
+
+
+def get_legacy_name(original_name):
     """Give a temporary name for an object using an odoo module version"""
-    return '%s_%s' % (original_name, version.replace('.', '_'))
+    _version = _get_target_version()
+    return '%s_%s' % (original_name, _version.replace('.', '_'))
 
 
 def normalize_value(value):
@@ -21,18 +31,18 @@ def normalize_value(value):
     return res
 
 
-def rename_columns(cr, column_spec, version):
+def rename_columns(cr, column_spec):
     """
     Renames columns according to the column_spec.
 
     The column spec is a dictionary whose key is the table name and the values
     are mapping tupples (old_name, new_name). When new_name is None, the name is
-    calculated using the odoo version before the update.
+    calculated using the odoo version of the update.
     """
     for table in column_spec.keys():
         for (old, new) in column_spec[table]:
             if new is None:
-                new = get_legacy_name(old, version)
+                new = get_legacy_name(old)
             _logger.info("table %s, column %s: renaming to %s", table, old, new)
             cr.execute(
                 'ALTER TABLE "%s" RENAME "%s" TO "%s"' %
@@ -44,7 +54,7 @@ def rename_columns(cr, column_spec, version):
             )
 
 
-def backup_columns_in_tables(cr, column_spec, version):
+def backup_columns_in_tables(cr, column_spec):
     """
     Drop legacy (backup) tables created to hold temporary the property data
     during the update.
@@ -54,7 +64,7 @@ def backup_columns_in_tables(cr, column_spec, version):
     sql_fmt = 'CREATE TABLE %(new_table)s AS SELECT %(fields)s FROM %(table)s'
     log_fmt = 'copying from table "%(table)s" to table "%(new_table)s" the columns: %(fields)s'
     for table in column_spec.keys():
-        new_table = get_legacy_name(table, version)
+        new_table = get_legacy_name(table)
         fields = [field for (field, _) in column_spec[table]]
         fields.append('id')
         params = { 'table': table, 'new_table': new_table,
@@ -64,7 +74,7 @@ def backup_columns_in_tables(cr, column_spec, version):
         cr.execute(sql)
 
 
-def drop_legacy_tables(cr, column_spec, version):
+def drop_legacy_tables(cr, column_spec):
     """
     Drop legacy (backup) tables created to hold temporary the property data
     during the update.
@@ -72,12 +82,12 @@ def drop_legacy_tables(cr, column_spec, version):
     See the `rename_columns` function for a description of `column_spec`
     """
     for table in column_spec.keys():
-        legacy_table = get_legacy_name(table, version)
+        legacy_table = get_legacy_name(table)
         _logger.info("dropping table %s", legacy_table)
         cr.execute('DROP TABLE IF EXISTS "%s"' % legacy_table)
 
 
-def drop_legacy_columns(cr, column_spec, version):
+def drop_legacy_columns(cr, column_spec):
     """
     Drop legacy (backup) columns. See the `rename_columns` function for a
     description of `column_spec`
@@ -85,7 +95,7 @@ def drop_legacy_columns(cr, column_spec, version):
     for table in column_spec.keys():
         for (old, new) in column_spec[table]:
             if new is None:
-                new = get_legacy_name(old, version)
+                new = get_legacy_name(old)
             _logger.info("table %s, dropping column %s", table, new)
             cr.execute(
                 'ALTER TABLE "%s" DROP COLUMN "%s" TO "%s"' % (table, new,)
@@ -95,16 +105,16 @@ def drop_legacy_columns(cr, column_spec, version):
             )
 
 
-def restore_field_to_property(env, model_name, field_name, version, use_extra_table, verify=True):
+def restore_field_to_property(env, model_name, field_name, use_extra_table, verify=True):
     """Restore property values previously saved in a renamed column"""
     # support the use of extra table or renamed columns
     model_obj = env[model_name]
     table_name = model_obj._table
     if use_extra_table:
-        table_name = get_legacy_name(table_name, version)
+        table_name = get_legacy_name(table_name)
         legacy_field_name = field_name
     else:
-        legacy_field_name = get_legacy_name(field_name, version)
+        legacy_field_name = get_legacy_name(field_name)
     # query saved values
     sql_fmt = 'SELECT id as res_id, %(column)s as value FROM %(table)s'
     sql_query = sql_fmt % {'table': table_name, 'column': legacy_field_name}

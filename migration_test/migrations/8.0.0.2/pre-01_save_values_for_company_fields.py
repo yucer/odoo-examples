@@ -25,4 +25,4 @@ def migrate(cr, version):
     """
     if not version:
         return
-    backup_columns_in_tables(cr, column_backups, version )
+    backup_columns_in_tables(cr, column_backups )
