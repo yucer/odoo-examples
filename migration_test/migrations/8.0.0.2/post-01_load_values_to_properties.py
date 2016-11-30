@@ -29,6 +29,6 @@ def migrate(cr, version):
         env = api.Environment(cr, SUPERUSER_ID, {})
         for model, fields in fields_to_property.items():
             for field in fields:
-                restore_field_to_property( env, model, field, version,
-                    use_extra_table, verify=VERIFY_MULTICOMPANY_FIELDS)
-    drop_legacy_tables(cr, column_backups, version)
+                restore_field_to_property( env, model, field, use_extra_table,
+                verify=VERIFY_MULTICOMPANY_FIELDS)
+    drop_legacy_tables(cr, column_backups)
